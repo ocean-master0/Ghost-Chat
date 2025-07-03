@@ -40,13 +40,13 @@ NoSQL? None-at-all – fully in-memory
 ---
 
 ## ▶️ Quick Start
-
+```
 git clone https://github.com/ocean-master0/Ghost-Chat.git
 cd ghost_chat
 python -m venv venv && source venv/bin/activate # (win: venv\Scripts\activate)
 pip install -r requirements.txt
 python app.py
-
+```
 
 Open **http://127.0.0.1:5000** in your browser (dark-mode recommended 🌙).
 
