@@ -1,7 +1,7 @@
 Flask==3.0.3
 Flask-SocketIO==5.3.6
 python-socketio==5.10.0
-eventlet==0.35.2          # works with Py 3.12
+eventlet==0.35.2
 gunicorn==21.2.0
 Werkzeug==3.0.3
 Pillow==10.4.0
