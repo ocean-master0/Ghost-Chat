@@ -41,7 +41,7 @@ NoSQL? None-at-all – fully in-memory
 
 ## ▶️ Quick Start
 
-git clone https://github.com/your-user/ghost_chat.git
+git clone https://github.com/ocean-master0/Ghost-Chat.git
 cd ghost_chat
 python -m venv venv && source venv/bin/activate # (win: venv\Scripts\activate)
 pip install -r requirements.txt
@@ -54,9 +54,7 @@ Open **http://127.0.0.1:5000** in your browser (dark-mode recommended 🌙).
 
 ## 🖼️ Screenshots
 
-<p align="center">
-  <img src="docs/live_preview.gif" width="800"/>
-</p>
+![Screenshot 1](https://github.com/ocean-master0/Ghost-Chat/blob/main/Screenshots/Screenshot%202025-07-03%20182315.png?raw=true)
 
 ---
 
@@ -71,7 +69,7 @@ Open **http://127.0.0.1:5000** in your browser (dark-mode recommended 🌙).
 ---
 
 ## 🧩 Project Structure
-
+```
 ghost_chat/
 ├─ app.py # Flask-SocketIO entry-point
 ├─ utils/chat_manager.py
@@ -80,3 +78,4 @@ ghost_chat/
 │ ├─ css/style.css # all the ghostly flair
 │ └─ js/main.js
 └─ README.md - LICENSE
+```
