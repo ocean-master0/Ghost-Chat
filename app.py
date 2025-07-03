@@ -319,9 +319,9 @@ def favicon():
     return '', 204
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, port=5000, allow_unsafe_werkzeug=True)
+    # You can configure SocketIO here if needed, or just run the app
+    socketio = SocketIO(app, 
+                   cors_allowed_origins="*", 
+                   max_http_buffer_size=50 * 1024 * 1024,
+                   async_mode='gevent')
 
-    try:
-        socketio.run(app, debug=True, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
-    except Exception as e:
-        print(f"Failed to start server: {e}")
