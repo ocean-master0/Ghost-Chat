@@ -320,8 +320,10 @@ def favicon():
 
 if __name__ == '__main__':
     # You can configure SocketIO here if needed, or just run the app
-    socketio = SocketIO(app, 
-                   cors_allowed_origins="*", 
-                   max_http_buffer_size=50 * 1024 * 1024,
-                   async_mode='gevent')
+    socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    max_http_buffer_size=50 * 1024 * 1024,
+    async_mode="gevent"         # explicitly use gevent
+)
 
