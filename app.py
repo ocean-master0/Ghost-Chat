@@ -5,20 +5,22 @@ import secrets
 import threading
 import time
 import os
-import base64
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from utils.chat_manager import ChatManager
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = secrets.token_hex(16)
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 app.config['UPLOAD_FOLDER'] = 'static/uploads/temp'
 
-# Create upload directory if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=50 * 1024 * 1024)
+# FORCE threading mode to avoid eventlet/gevent
+socketio = SocketIO(app, 
+                   cors_allowed_origins="*", 
+                   max_http_buffer_size=50 * 1024 * 1024,
+                   async_mode='threading')  # <-- This is the key fix
 
 # Initialize chat manager
 chat_manager = ChatManager()
