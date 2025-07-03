@@ -323,6 +323,6 @@ def favicon():
 if __name__ == '__main__':
     # You can configure SocketIO here if needed, or just run the app
     # Replace the SocketIO line with:
-    app.run(debug=True, port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
 
 
