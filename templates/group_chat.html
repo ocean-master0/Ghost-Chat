@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="chat-container">
+    <div class="chat-header">
+        <h2>👥 Group Chat</h2>
+        <button onclick="exitRoom()" class="exit-btn">Exit</button>
+    </div>
+    
+    <div id="group-menu" class="join-form">
+        <h3>Group Options</h3>
+        <div class="group-options">
+            <button onclick="showCreateGroup()">Create Group</button>
+            <button onclick="showJoinGroup()">Join Group</button>
+        </div>
+    </div>
+    
+    <div id="create-group" class="join-form" style="display: none;">
+        <h3>Create Group</h3>
+        <input type="text" id="group-name" placeholder="Group name" maxlength="30">
+        <input type="text" id="admin-name" placeholder="Your name or stay 'Unknown'" maxlength="20">
+        <button onclick="createGroup()" id="create-btn">Create Group</button>
+        <button onclick="backToMenu()">Back</button>
+    </div>
+    
+    <div id="join-group" class="join-form" style="display: none;">
+        <h3>Join Group</h3>
+        <input type="text" id="invite-code" placeholder="Enter invite code" maxlength="8">
+        <input type="text" id="join-username" placeholder="Your name or stay 'Unknown'" maxlength="20">
+        <button onclick="joinGroup()" id="join-btn">Join Group</button>
+        <button onclick="backToMenu()">Back</button>
+    </div>
+    
+    <div id="group-created" class="join-form" style="display: none;">
+        <h3>Group Created!</h3>
+        <p>Share this invite code:</p>
+        <div class="invite-code" id="generated-code" onclick="copyToClipboard(this.textContent)"></div>
+        <button onclick="enterGroup()">Enter Group</button>
+    </div>
+    
+    <div id="chat-area" class="chat-area" style="display: none;">
+        <div id="messages" class="messages"></div>
+        <div class="input-area">
+            <div class="input-container">
+                <input type="text" id="message-input" placeholder="Type a message..." maxlength="500">
+                <div class="input-actions">
+                    <button class="image-upload-btn" onclick="triggerImageUpload()">
+                        📷
+                    </button>
+                    <input type="file" id="image-input" class="hidden-file-input" 
+                           accept="image/*" onchange="handleImageUpload(this)">
+                </div>
+            </div>
+            <button class="send-btn" onclick="sendMessage()" id="send-button" disabled>
+                ➤
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const socket = io();
+let currentUser = null;
+let currentGroupId = null;
+
+setupConnectionMonitoring(socket);
+
+function exitRoom() {
+    if (socket && socket.connected) {
+        socket.disconnect();
+    }
+    window.location.href = '/';
+}
+
+function showCreateGroup() {
+    document.getElementById('group-menu').style.display = 'none';
+    document.getElementById('create-group').style.display = 'block';
+}
+
+function showJoinGroup() {
+    document.getElementById('group-menu').style.display = 'none';
+    document.getElementById('join-group').style.display = 'block';
+}
+
+function backToMenu() {
+    document.getElementById('create-group').style.display = 'none';
+    document.getElementById('join-group').style.display = 'none';
+    document.getElementById('group-menu').style.display = 'block';
+}
+
+async function createGroup() {
+    const groupNameInput = document.getElementById('group-name');
+    const adminNameInput = document.getElementById('admin-name');
+    const createBtn = document.getElementById('create-btn');
+    
+    if (!groupNameInput || !adminNameInput || !createBtn) {
+        showNotification('Form elements not found', 'error');
+        return;
+    }
+    
+    const groupName = groupNameInput.value.trim() || 'Untitled Group';
+    const adminName = adminNameInput.value.trim() || 'Unknown';
+    
+    createBtn.disabled = true;
+    createBtn.textContent = 'Creating...';
+    
+    try {
+        const response = await fetch('/api/create-group', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                group_name: groupName,
+                admin_name: adminName
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentGroupId = data.group_id;
+            currentUser = adminName;
+            document.getElementById('generated-code').textContent = data.invite_code;
+            document.getElementById('create-group').style.display = 'none';
+            document.getElementById('group-created').style.display = 'block';
+            showNotification('Group created successfully!');
+        } else {
+            showNotification(data.message || 'Failed to create group', 'error');
+        }
+    } catch (error) {
+        console.error('Create group error:', error);
+        showNotification('Network error occurred', 'error');
+    } finally {
+        createBtn.disabled = false;
+        createBtn.textContent = 'Create Group';
+    }
+}
+
+async function joinGroup() {
+    const inviteCodeInput = document.getElementById('invite-code');
+    const usernameInput = document.getElementById('join-username');
+    const joinBtn = document.getElementById('join-btn');
+    
+    if (!inviteCodeInput || !usernameInput || !joinBtn) {
+        showNotification('Form elements not found', 'error');
+        return;
+    }
+    
+    const inviteCode = inviteCodeInput.value.trim();
+    const username = usernameInput.value.trim() || 'Unknown';
+    
+    if (!inviteCode) {
+        showNotification('Please enter an invite code', 'error');
+        return;
+    }
+    
+    joinBtn.disabled = true;
+    joinBtn.textContent = 'Joining...';
+    
+    try {
+        const response = await fetch('/api/join-group', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                invite_code: inviteCode,
+                user_name: username
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentGroupId = data.group_id;
+            currentUser = username;
+            enterGroup();
+        } else {
+            showNotification(data.message || 'Invalid invite code', 'error');
+        }
+    } catch (error) {
+        console.error('Join group error:', error);
+        showNotification('Network error occurred', 'error');
+    } finally {
+        joinBtn.disabled = false;
+        joinBtn.textContent = 'Join Group';
+    }
+}
+
+function enterGroup() {
+    try {
+        socket.emit('join_group_room', {
+            group_id: currentGroupId,
+            user_name: currentUser
+        });
+        
+        socket.once('join_success', () => {
+            document.getElementById('group-created').style.display = 'none';
+            document.getElementById('join-group').style.display = 'none';
+            document.getElementById('chat-area').style.display = 'block';
+            
+            const messageInput = document.getElementById('message-input');
+            if (messageInput) {
+                messageInput.focus();
+            }
+            
+            showNotification(`Welcome to the group, ${currentUser}!`);
+        });
+        
+    } catch (error) {
+        console.error('Enter group error:', error);
+        showNotification('Failed to enter group', 'error');
+    }
+}
+
+function triggerImageUpload() {
+    const imageInput = document.getElementById('image-input');
+    if (imageInput) {
+        imageInput.click();
+    }
+}
+
+function sendMessage() {
+    const messageInput = document.getElementById('message-input');
+    if (!messageInput) return;
+    
+    const message = messageInput.value.trim();
+    const imageUrl = window.pendingImageUrl;
+    
+    if (!message && !imageUrl) return;
+    
+    const messageData = {
+        message: message,
+        type: 'text',
+        image_url: imageUrl || ''
+    };
+    
+    socket.emit('send_message', messageData);
+    messageInput.value = '';
+    removeImagePreview();
+    updateSendButtonState();
+}
+
+// Socket events
+socket.on('new_message', function(data) {
+    addMessage(data, currentUser);
+});
+
+socket.on('user_joined', function(data) {
+    addSystemMessage(data.message);
+});
+
+socket.on('user_left', function(data) {
+    addSystemMessage(data.message);
+});
+
+socket.on('user_typing', function(data) {
+    if (data.typing) {
+        showTypingIndicator(data.user_name);
+    } else {
+        hideTypingIndicator();
+    }
+});
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const messageInput = document.getElementById('message-input');
+    
+    if (messageInput) {
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            } else {
+                handleTyping(socket);
+            }
+        });
+        
+        messageInput.addEventListener('input', function() {
+            updateSendButtonState();
+        });
+    }
+    
+    // Add enter key listeners for all inputs
+    const inputs = ['group-name', 'admin-name', 'invite-code', 'join-username'];
+    inputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (inputId.includes('admin') || inputId.includes('group-name')) {
+                        createGroup();
+                    } else if (inputId.includes('invite') || inputId.includes('join')) {
+                        joinGroup();
+                    }
+                }
+            });
+        }
+    });
+});
+
+window.addEventListener('beforeunload', function() {
+    if (socket && socket.connected) {
+        socket.disconnect();
+    }
+});
+</script>
+{% endblock %}

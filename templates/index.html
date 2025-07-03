@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="home-container">
+    <div class="logo">
+        <h1>👻 Ghost Chat</h1>
+        <p>Anonymous • Ephemeral • Secure</p>
+    </div>
+    
+    <div class="menu-options">
+        <div class="menu-card" onclick="location.href='/group-chat'">
+            <h3>👥 Group Chat</h3>
+            <p>Create or join private groups</p>
+        </div>
+        
+        <div class="menu-card" onclick="location.href='/private-chat'">
+            <h3>🔒 Private Chat</h3>
+            <p>1-on-1 secure messaging</p>
+        </div>
+    </div>
+    
+    <div class="features">
+        <div class="feature">
+            <span>🔥</span>
+            <p>Messages self-destruct after 1 minute</p>
+        </div>
+        <div class="feature">
+            <span>🚫</span>
+            <p>Screenshot protection active</p>
+        </div>
+        <div class="feature">
+            <span>🕵️</span>
+            <p>Stay anonymous or use any name</p>
+        </div>
+        <div class="feature">
+            <span>📸</span>
+            <p>Share images up to 50MB</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

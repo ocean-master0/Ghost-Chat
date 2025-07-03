@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="chat-container">
+    <div class="chat-header">
+        <h2>🔒 Private Chat</h2>
+        <button onclick="exitRoom()" class="exit-btn">Exit</button>
+    </div>
+    
+    <div id="private-menu" class="join-form">
+        <h3>Private Chat Options</h3>
+        <div class="group-options">
+            <button onclick="showCreatePrivate()">Create Private Room</button>
+            <button onclick="showJoinPrivate()">Join Private Room</button>
+        </div>
+    </div>
+    
+    <div id="create-private" class="join-form" style="display: none;">
+        <h3>Create Private Room</h3>
+        <input type="text" id="creator-name" placeholder="Your name or stay 'Unknown'" maxlength="20">
+        <button onclick="createPrivateRoom()" id="create-btn">Create Room</button>
+        <button onclick="backToPrivateMenu()">Back</button>
+    </div>
+    
+    <div id="join-private" class="join-form" style="display: none;">
+        <h3>Join Private Room</h3>
+        <input type="text" id="private-invite-code" placeholder="Enter invite code" maxlength="8">
+        <input type="text" id="private-username" placeholder="Your name or stay 'Unknown'" maxlength="20">
+        <button onclick="joinPrivateRoom()" id="join-btn">Join Room</button>
+        <button onclick="backToPrivateMenu()">Back</button>
+    </div>
+    
+    <div id="private-created" class="join-form" style="display: none;">
+        <h3>Private Room Created!</h3>
+        <p>Share this invite code with one person:</p>
+        <div class="invite-code" id="private-generated-code" onclick="copyToClipboard(this.textContent)"></div>
+        <button onclick="enterPrivateRoom()">Enter Room</button>
+    </div>
+    
+    <div id="chat-area" class="chat-area" style="display: none;">
+        <div id="messages" class="messages"></div>
+        <div class="input-area">
+            <div class="input-container">
+                <input type="text" id="message-input" placeholder="Type a message..." maxlength="500">
+                <div class="input-actions">
+                    <button class="image-upload-btn" onclick="triggerImageUpload()">
+                        📷
+                    </button>
+                    <input type="file" id="image-input" class="hidden-file-input" 
+                           accept="image/*" onchange="handleImageUpload(this)">
+                </div>
+            </div>
+            <button class="send-btn" onclick="sendMessage()" id="send-button" disabled>
+                ➤
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const socket = io();
+let currentUser = null;
+let currentRoomId = null;
+
+setupConnectionMonitoring(socket);
+
+function exitRoom() {
+    if (socket && socket.connected) {
+        socket.disconnect();
+    }
+    window.location.href = '/';
+}
+
+function showCreatePrivate() {
+    document.getElementById('private-menu').style.display = 'none';
+    document.getElementById('create-private').style.display = 'block';
+}
+
+function showJoinPrivate() {
+    document.getElementById('private-menu').style.display = 'none';
+    document.getElementById('join-private').style.display = 'block';
+}
+
+function backToPrivateMenu() {
+    document.getElementById('create-private').style.display = 'none';
+    document.getElementById('join-private').style.display = 'none';
+    document.getElementById('private-menu').style.display = 'block';
+}
+
+async function createPrivateRoom() {
+    const creatorNameInput = document.getElementById('creator-name');
+    const createBtn = document.getElementById('create-btn');
+    
+    if (!creatorNameInput || !createBtn) {
+        showNotification('Form elements not found', 'error');
+        return;
+    }
+    
+    const creatorName = creatorNameInput.value.trim() || 'Unknown';
+    
+    createBtn.disabled = true;
+    createBtn.textContent = 'Creating...';
+    
+    try {
+        const response = await fetch('/api/create-private-room', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                creator_name: creatorName
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentRoomId = data.room_id;
+            currentUser = creatorName;
+            document.getElementById('private-generated-code').textContent = data.invite_code;
+            document.getElementById('create-private').style.display = 'none';
+            document.getElementById('private-created').style.display = 'block';
+            showNotification('Private room created successfully!');
+        } else {
+            showNotification(data.message || 'Failed to create room', 'error');
+        }
+    } catch (error) {
+        console.error('Create room error:', error);
+        showNotification('Network error occurred', 'error');
+    } finally {
+        createBtn.disabled = false;
+        createBtn.textContent = 'Create Room';
+    }
+}
+
+async function joinPrivateRoom() {
+    const inviteCodeInput = document.getElementById('private-invite-code');
+    const usernameInput = document.getElementById('private-username');
+    const joinBtn = document.getElementById('join-btn');
+    
+    if (!inviteCodeInput || !usernameInput || !joinBtn) {
+        showNotification('Form elements not found', 'error');
+        return;
+    }
+    
+    const inviteCode = inviteCodeInput.value.trim();
+    const username = usernameInput.value.trim() || 'Unknown';
+    
+    if (!inviteCode) {
+        showNotification('Please enter an invite code', 'error');
+        return;
+    }
+    
+    joinBtn.disabled = true;
+    joinBtn.textContent = 'Joining...';
+    
+    try {
+        const response = await fetch('/api/join-private-room', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                invite_code: inviteCode,
+                user_name: username
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentRoomId = data.room_id;
+            currentUser = username;
+            enterPrivateRoom();
+        } else {
+            showNotification(data.message || 'Invalid invite code or room is full', 'error');
+        }
+    } catch (error) {
+        console.error('Join room error:', error);
+        showNotification('Network error occurred', 'error');
+    } finally {
+        joinBtn.disabled = false;
+        joinBtn.textContent = 'Join Room';
+    }
+}
+
+function enterPrivateRoom() {
+    try {
+        socket.emit('join_private_room', {
+            room_id: currentRoomId,
+            user_name: currentUser
+        });
+        
+        socket.once('join_success', () => {
+            document.getElementById('private-created').style.display = 'none';
+            document.getElementById('join-private').style.display = 'none';
+            document.getElementById('chat-area').style.display = 'block';
+            
+            const messageInput = document.getElementById('message-input');
+            if (messageInput) {
+                messageInput.focus();
+            }
+            
+            showNotification(`Welcome to private chat, ${currentUser}!`);
+        });
+        
+    } catch (error) {
+        console.error('Enter room error:', error);
+        showNotification('Failed to enter room', 'error');
+    }
+}
+
+function triggerImageUpload() {
+    const imageInput = document.getElementById('image-input');
+    if (imageInput) {
+        imageInput.click();
+    }
+}
+
+function sendMessage() {
+    const messageInput = document.getElementById('message-input');
+    if (!messageInput) return;
+    
+    const message = messageInput.value.trim();
+    const imageUrl = window.pendingImageUrl;
+    
+    if (!message && !imageUrl) return;
+    
+    const messageData = {
+        message: message,
+        type: 'text',
+        image_url: imageUrl || ''
+    };
+    
+    socket.emit('send_message', messageData);
+    messageInput.value = '';
+    removeImagePreview();
+    updateSendButtonState();
+}
+
+// Socket events
+socket.on('new_message', function(data) {
+    addMessage(data, currentUser);
+});
+
+socket.on('user_joined', function(data) {
+    addSystemMessage(data.message);
+});
+
+socket.on('user_left', function(data) {
+    addSystemMessage(data.message);
+});
+
+socket.on('user_typing', function(data) {
+    if (data.typing) {
+        showTypingIndicator(data.user_name);
+    } else {
+        hideTypingIndicator();
+    }
+});
+
+// Event listeners
+document.addEventListener('DOMContentLoaded', function() {
+    const messageInput = document.getElementById('message-input');
+    
+    if (messageInput) {
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            } else {
+                handleTyping(socket);
+            }
+        });
+        
+        messageInput.addEventListener('input', function() {
+            updateSendButtonState();
+        });
+    }
+    
+    // Add enter key listeners for inputs
+    const inputs = ['creator-name', 'private-invite-code', 'private-username'];
+    inputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (inputId.includes('creator')) {
+                        createPrivateRoom();
+                    } else if (inputId.includes('invite') || inputId.includes('private-username')) {
+                        joinPrivateRoom();
+                    }
+                }
+            });
+        }
+    });
+});
+
+window.addEventListener('beforeunload', function() {
+    if (socket && socket.connected) {
+        socket.disconnect();
+    }
+});
+</script>
+{% endblock %}
